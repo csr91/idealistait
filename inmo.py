@@ -32,11 +32,17 @@ def authenticate_google_sheets():
     # Cargamos las credenciales desde el archivo auth.json
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_name('auth.json', scope)
-    client = gspread.authorize(creds)
+    
+    try:
+        client = gspread.authorize(creds)
+        print("Autenticación con Google Sheets exitosa.")
+    except Exception as e:
+        print("Error al autenticar con Google Sheets:", e)
+        return None
 
     # Abrimos la hoja de cálculo por su URL
     spreadsheet = client.open_by_url('https://docs.google.com/spreadsheets/d/1hVN_O1jFfP3YhRilSNmeMZqQbfw4FXi1p0pOSvCIunk/edit#gid=306915816')
-    return spreadsheet.worksheet('inmodire')
+    return spreadsheet.worksheet('Inmobiliarias')
 
 def execute_alt_tab():
     # Simula presionar la tecla 'Alt+Tab'
@@ -67,10 +73,10 @@ def main():
 
         # Simula presionar Enter
         pyautogui.press('enter')
-        time.sleep(3)
+        time.sleep(4)
 
         pyautogui.hotkey('ctrl', 'u')
-        time.sleep(2)
+        time.sleep(3)
 
         pyautogui.hotkey('ctrl', 'a')
         time.sleep(0.3)
@@ -89,6 +95,11 @@ def main():
 
         # Verificar si el bloque <div class="infoblock"> está presente en el HTML
         infoblock_div = soup.find('div', class_='infoblock')
+
+        url_parts = url.split("/")
+        subpath = url_parts[-2]
+
+        print("Subpath:", subpath)  # Imprimir en terminal
 
         if infoblock_div:
             # Si se encuentra el bloque, guardar la URL en la hoja "nourl"
@@ -114,19 +125,18 @@ def main():
             # Extraer el código postal
             postal_code = extract_postal_code(location_text)
 
-            # Preparar datos para Google Sheets
-            preurl = '/pro/'  # Parte de la URL antes de la porción específica
-            specific_url = url.split('/')[-1] 
+            specific_url = f"/pro/{subpath}/"
 
             # Imprimir los resultados en pantalla
             print("URL:", url)
+            print("Specific url:", specific_url)
             print("Nombre de la agencia:", agency_name)
             print("Ubicación:", location_text)
             print("Código Postal:", postal_code)
             print()
 
             # Guardar los resultados en Google Sheets
-            worksheet_data.append_row([preurl, url, agency_name, location_text, postal_code])
+            worksheet_data.append_row([specific_url, url, agency_name, location_text, postal_code])
 
 if __name__ == "__main__":
     main()
