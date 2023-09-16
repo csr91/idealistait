@@ -1,4 +1,4 @@
-# ESTE CODIGO RECORRE LISTINGS POR PAGINAS NUMERADAS
+# ESTE CODIGO RECORRE LISTINGS POR PAGINAS NUMERADAS.
 # PEGA LA INFO EN LA HOJA datos DEL SHEET
 # UTILIZA EL TXT listing.txt POR CADA URL A SCRAPEAR
 # UTILIZA EL TXT ids_inmuebles.txt PARA VALIDAD DUPLICIDAD DE INMUEBLES
@@ -16,6 +16,7 @@ import re
 import gspread
 from google.oauth2.service_account import Credentials
 import datetime
+import pygetwindow as gw
 
 ## PARTE 1 | OBTENCION DE HTML Y GUARDADO EN VARIABLE PAGESOURCE
 
@@ -23,7 +24,7 @@ html = ""
 page_source = ""
 
 fecha_actual = datetime.datetime.now().strftime('%Y%m%d')
-PAIS = "España"
+PAIS = "Italia"
 
 def get_page_source(url):
     time.sleep(0.5)
@@ -46,13 +47,13 @@ def get_page_source(url):
     pyautogui.press('enter')
 
     # Espera 1 segundo para que se cargue la página
-    time.sleep(1.5)
+    time.sleep(6.5)
 
     # Emula el atajo de teclado Ctrl+U para abrir el código fuente de la página
     pyautogui.hotkey('ctrl', 'u')
 
     # Espera 1 segundo para que se abra el código fuente
-    time.sleep(3)
+    time.sleep(4)
 
     # Emula el atajo de teclado Ctrl+A para seleccionar todo el contenido
     pyautogui.hotkey('ctrl', 'a')
@@ -83,9 +84,9 @@ def get_page_source(url):
 
     # Abre el archivo "pagesource.txt" en modo append
     with open('inmopagesource.txt', 'a', encoding='utf-8') as file:
-        for article in articles:
-            file.write(str(article))
-            file.write('\n\n')
+       for article in articles:
+           file.write(str(article))
+           file.write('\n\n')
 
     print(f"El contenido de los elementos <article> de {url} se ha agregado a 'pagesource.txt'")
 
@@ -109,19 +110,26 @@ if __name__ == '__main__':
     print("El programa iniciará en 2 segundos.")
     time.sleep(1.5)
 
-    # Activa la ventana del navegador utilizando Alt+Tab colocada previamente por usuario
-    pyautogui.keyDown('alt')
-    pyautogui.press('tab')
-    pyautogui.keyUp('alt')
+    # Esperar 2 segundos
+    time.sleep(2)
 
-    keyboard.on_press_key('esc', stop_program)
+    # Obtener la ventana de Google Chrome por título
+    chrome_windows = gw.getWindowsWithTitle("Google Chrome")
+
+    if not chrome_windows:
+        print("No se encontraron ventanas de Google Chrome abiertas.")
+        sys.exit()
+    
+    # Si hay ventanas de Chrome abiertas, activa la primera
+    chrome_window = chrome_windows[0]
+    chrome_window.activate()
+
+    time.sleep(0.5)
+    pyautogui.hotkey('ctrl', 't')
+    time.sleep(0.5)
 
     for url in urls:
         get_page_source(url)
-        print("----------------------------------")
-
-        # Llamar a la función para procesar el contenido del archivo "pagesource.txt"
-        process_page_source()
         print("----------------------------------")
 
         ## PARTE 2 | PROCESAMIENTO DE INFORMACION DEL HTML ALOJADO EN PAGESOURCE
@@ -149,7 +157,7 @@ if __name__ == '__main__':
                 url = a_element['href']
 
                 # Extraer el ID del inmueble de la URL
-                id_inmueble = re.search(r'/inmueble/(\d+)/', url)
+                id_inmueble = re.search(r'/immobile/(\d+)/', url)
                 id_inmueble = id_inmueble.group(1) if id_inmueble is not None else ""
             else:
                 # Si el elemento no existe, asignar una cadena vacía a la URL e ID del inmueble
@@ -162,12 +170,19 @@ if __name__ == '__main__':
             # Contar las comas en el título y extraer el texto correspondiente
             num_comas = titulo.count(',')
             if num_comas > 2:
+                # If there are more than two commas, extract the second-to-last part
                 titulo_extraido = titulo.split(',')[-2].strip()
             elif num_comas == 2:
+                # If there are exactly two commas, extract the middle part
                 titulo_extraido = titulo.split(',')[1].strip()
+            elif num_comas == 1 and 'e ' in titulo:
+                # If there is a single comma and 'e ' (with a space) before it, extract the part after 'e ' and before the comma
+                titulo_extraido = titulo.split('e ')[1].split(',')[0].strip()
             elif num_comas == 1:
-                titulo_extraido = titulo.split('en ')[1].split(',')[0].strip()
+                # If there is a single comma without 'e ', extract the part before the comma
+                titulo_extraido = titulo.split(',')[0].strip()
             else:
+                # If there are no commas, keep the original titulo value
                 titulo_extraido = titulo
 
             a2_element = article.find('a', attrs={'data-markup': 'listado::logo-agencia'})
@@ -184,7 +199,7 @@ if __name__ == '__main__':
             # Encontrar los elementos <span> que contienen los detalles del inmueble
             detalles_element = article.find_all('span', class_='item-detail')
             habitaciones = re.sub(r'\D', '', detalles_element[0].text.strip()) if len(detalles_element) > 0 else "0"
-            metros_cuadrados = re.sub(r'\D', '', detalles_element[1].text.strip()) if len(detalles_element) > 1 else ""
+            metros_cuadrados = re.sub(r'\D', '', detalles_element[1].text.strip())[:-1] if len(detalles_element) > 1 and len(detalles_element[1].text.strip()) > 0 else ""
 
             # Encontrar el elemento <div> que contiene la descripción
             descripcion_element = article.find('div', class_='item-description')
@@ -215,12 +230,12 @@ if __name__ == '__main__':
                 existing_ids.add(line.strip())
 
         # Filtrar los nuevos datos para evitar duplicados
-        new_rows = [row for row in rows if row[0] not in existing_ids]
+        new_rows = [row for row in rows if row[3] not in existing_ids]
 
         # Guardar los nuevos IDs en el archivo de texto
         with open('ids_inmuebles.txt', 'a', encoding='utf-8') as file:
-            for row in new_rows:
-                id_inmueble = row[2]  # Cambiar 2 a la posición correcta del ID en la lista row
+             for row in new_rows:
+                id_inmueble = row[3] # Cambiar 2 a la posición correcta del ID en la lista row
                 file.write(str(id_inmueble))
                 file.write('\n')
 
@@ -238,16 +253,18 @@ if __name__ == '__main__':
         hoja_calculo = cliente.open_by_url('https://docs.google.com/spreadsheets/d/1hVN_O1jFfP3YhRilSNmeMZqQbfw4FXi1p0pOSvCIunk/edit#gid=1100087305')
 
         # Selecciona la hoja de cálculo por su nombre (pestaña)
-        nombre_pestaña = 'Listings'
+        nombre_pestaña = 'Italia'
         hoja = hoja_calculo.worksheet(nombre_pestaña)
 
-        # Obtener la última fila no vacía en la hoja de cálculo
-        last_row = len(hoja.get_all_values()) + 1
+        # Obtener la última fila no vacía en la primera columna
+        columna_primera = hoja.col_values(1)
+        last_non_empty_row = len(columna_primera)
 
-        # Obtener la referencia de la celda para la actualización
-        cell_range = f'A{last_row}'
+        # Obtener la referencia de la celda para la actualización (la siguiente fila)
+        next_row = last_non_empty_row + 1
+        cell_range = f'A{next_row}'
 
-        # Actualizar la hoja de cálculo solo con los nuevos datos a partir de la última fila escrita
+        # Actualizar la hoja de cálculo con los nuevos datos en la siguiente fila a la última fila no vacía en la PRIMERA columna
         hoja.update(cell_range, new_rows, value_input_option='USER_ENTERED')
 
         print("Los nuevos datos se han enviado a la hoja de cálculo en Google.")
