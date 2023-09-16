@@ -4,6 +4,7 @@
 # UTILIZA EL TXT ids_inmuebles.txt PARA VALIDAD DUPLICIDAD DE INMUEBLES
 # UTILIZA EL TXT inmopagesource.txt PARA ALMACENAR INFORMACION DE LOS LISTINGS
 
+import sys
 import time
 import pyperclip
 import pyautogui
